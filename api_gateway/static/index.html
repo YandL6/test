@@ -210,19 +210,45 @@
         .welcome-title { font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
         .welcome-subtitle { font-size: 15px; color: var(--text-tertiary); margin-bottom: 36px; text-align: center; }
 
-        .mode-selector { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; justify-content: center; }
-        .mode-btn {
-            padding: 8px 18px;
-            border: 1px solid var(--border);
+        /* 平台功能流程卡片 */
+        .feature-cards { display: flex; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; justify-content: center; }
+        .feature-card {
+            flex: 1;
+            min-width: 180px;
+            max-width: 220px;
+            padding: 18px 16px;
             background: var(--surface);
-            border-radius: 20px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            text-align: center;
             transition: all .15s;
         }
-        .mode-btn:hover { border-color: var(--cqu-red); color: var(--cqu-red); }
-        .mode-btn.active { background: var(--cqu-red); color: #fff; border-color: var(--cqu-red); }
+        .feature-card:hover { border-color: var(--cqu-red); box-shadow: 0 2px 12px rgba(200,22,35,0.08); }
+        .feature-card .fc-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 20px; margin-bottom: 10px;
+        }
+        .fc-icon-1 { background: #E8F0FE; color: #1A73E8; }
+        .fc-icon-2 { background: #FEF3C7; color: #D97706; }
+        .fc-icon-3 { background: #D1FAE5; color: #059669; }
+        .feature-card .fc-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+        .feature-card .fc-desc { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; }
+        .feature-card .fc-arrow { color: var(--text-tertiary); font-size: 14px; margin: 0 2px; }
+
+        /* 输入框内功能域下拉 */
+        .domain-select {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: var(--bg);
+            cursor: pointer;
+            outline: none;
+        }
+        .domain-select:focus { border-color: var(--cqu-red); }
 
         .input-box {
             width: 100%;
@@ -584,16 +610,32 @@
                 <div class="welcome-logo">重</div>
                 <h1 class="welcome-title">Hermes VCU Gateway</h1>
                 <p class="welcome-subtitle">基于 Hermes AI Agent + SGLang 大模型<br>自动生成 VCU 测试用例与自动化脚本</p>
-                <div class="mode-selector" id="mode-selector">
-                    <div class="mode-btn active" data-domain="vcu_gear" onclick="selectMode(this)">VCU 档位管理</div>
-                    <div class="mode-btn" data-domain="vcu_torque" onclick="selectMode(this)">VCU 扭矩管理</div>
-                    <div class="mode-btn" data-domain="general" onclick="selectMode(this)">通用模式</div>
+                <div class="feature-cards">
+                    <div class="feature-card">
+                        <div class="fc-icon fc-icon-1">📎</div>
+                        <div class="fc-title">上传需求文档</div>
+                        <div class="fc-desc">支持 PDF / DOCX / XLSX / TXT / MD<br>自动解析并存入知识库</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="fc-icon fc-icon-2">⚙</div>
+                        <div class="fc-title">AI 智能生成</div>
+                        <div class="fc-desc">自动提取需求点<br>生成 S0-S3 分级测试用例</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="fc-icon fc-icon-3">📦</div>
+                        <div class="fc-title">自动化脚本</div>
+                        <div class="fc-desc">基于用例生成<br>可执行的 Python 测试脚本</div>
+                    </div>
                 </div>
                 <div class="input-box">
                     <textarea class="session-title-input" id="welcome-title-input"
                         placeholder="输入会话标题，例如：P挡至D挡切换测试用例生成" rows="2"></textarea>
                     <div class="input-box-footer">
-                        <span class="input-hint">创建会话后即可上传文档、生成需求点与测试用例</span>
+                        <select class="domain-select" id="welcome-domain-select">
+                            <option value="vcu_gear">VCU 档位管理</option>
+                            <option value="vcu_torque">VCU 扭矩管理</option>
+                            <option value="general">通用</option>
+                        </select>
                         <button class="create-btn" id="welcome-create-btn" onclick="createSessionFromWelcome()">
                             创建会话
                             <span style="font-size:16px">→</span>
@@ -713,7 +755,6 @@
 <script>
 const API = '';
 let sessionId = null;
-let selectedDomain = 'vcu_gear';
 let sessionHistory = [];
 
 // ========== 工具函数 ==========
@@ -755,12 +796,6 @@ function switchTab(el, tab) {
 
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('collapsed');
-}
-
-function selectMode(el) {
-    document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    selectedDomain = el.dataset.domain;
 }
 
 function showWelcome() {
@@ -916,11 +951,13 @@ async function createSessionFromWelcome() {
     const btn = document.getElementById('welcome-create-btn');
     btn.disabled = true;
 
+    const domainSelect = document.getElementById('welcome-domain-select');
+    const domain = domainSelect ? domainSelect.value : 'vcu_gear';
     try {
         const resp = await fetch(API + '/api/v1/sessions', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ title, domain: selectedDomain })
+            body: JSON.stringify({ title, domain })
         });
         const data = await resp.json();
         if (data.code === 0) {
