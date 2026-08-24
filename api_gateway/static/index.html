@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VCU 测试用例生成平台 — Phase 1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0a0e1a; --surface: #131825; --border: #2a3447;
+            --primary: #f59e0b; --primary-dim: #b45309;
+            --text: #e2e8f0; --text-dim: #94a3b8;
+            --success: #10b981; --error: #ef4444;
+            --mono: 'JetBrains Mono', 'Consolas', monospace;
+        }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .header .badge { background: var(--primary-dim); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
+        .header .status { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+        .header .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .dot-ok { background: var(--success); } .dot-warn { background: var(--primary); } .dot-err { background: var(--error); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        .grid { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+        .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+            padding: 10px 12px; color: var(--text); font-size: 14px; font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+        .btn {
+            background: var(--primary); color: #000; border: none; border-radius: 6px;
+            padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .upload-area { border: 2px dashed var(--border); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: border-color .2s; }
+        .upload-area:hover { border-color: var(--primary); }
+        .upload-area p { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
+        .upload-area .icon { font-size: 32px; }
+        .file-list { margin-top: 12px; }
+        .file-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 6px; font-size: 13px; font-family: var(--mono); }
+        .file-item .del { margin-left: auto; color: var(--error); cursor: pointer; }
+        .workflow { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .workflow-step { flex: 1; min-width: 120px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; position: relative; }
+        .workflow-step .num { font-size: 20px; font-weight: 700; color: var(--text-dim); }
+        .workflow-step .label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+        .workflow-step.active { border-color: var(--primary); }
+        .workflow-step.active .num { color: var(--primary); }
+        .workflow-step.active .label { color: var(--text); }
+        .workflow-step.done { border-color: var(--success); }
+        .workflow-step.done .num { color: var(--success); }
+        .stream-output { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+        .stream-output .event-status { color: var(--text-dim); }
+        .stream-output .event-chunk { color: var(--text); }
+        .stream-output .event-result { color: var(--success); }
+        .stream-output .event-error { color: var(--error); }
+        .result-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .result-table th { text-align: left; padding: 8px 12px; background: var(--bg); color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); }
+        .result-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+        .result-table tr:hover { background: var(--bg); }
+        .level-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+        .level-S0 { background: #1e3a5f; color: #60a5fa; } .level-S1 { background: #1e3f3a; color: #34d399; }
+        .level-S2 { background: #3f2a1e; color: #fbbf24; } .level-S3 { background: #3f1e1e; color: #f87171; }
+        .level-S4 { background: #2a1e3f; color: #a78bfa; }
+        .empty { text-align: center; padding: 40px; color: var(--text-dim); font-size: 14px; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+        .tab { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text-dim); border-bottom: 2px solid transparent; transition: all .2s; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 12px; overflow-x: auto; white-space: pre; }
+        .json-view { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 6px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity .3s; }
+        .toast.show { opacity: 1; }
+        .toast-success { background: var(--success); color: #fff; }
+        .toast-error { background: var(--error); color: #fff; }
+        .info-row { display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+        .info-row span { font-family: var(--mono); color: var(--text); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>VCU 测试用例生成平台</h1>
+        <span class="badge">PHASE 1</span>
+        <div class="status">
+            <span id="hermes-status"><span class="dot dot-warn"></span>检查中...</span>
+            <span style="margin-left:16px" id="session-status">未创建会话</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <!-- 左侧：操作面板 -->
+            <div>
+                <!-- 会话管理 -->
+                <div class="card">
+                    <h2>① 会话管理</h2>
+                    <div class="form-group">
+                        <label>会话标题</label>
+                        <input type="text" id="session-title" value="VCU档位管理测试" />
+                    </div>
+                    <div class="form-group">
+                        <label>功能域</label>
+                        <select id="domain-select">
+                            <option value="vcu_gear">VCU 档位管理</option>
+                            <option value="vcu_torque">VCU 扭矩管理</option>
+                            <option value="general">通用</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="createSession()">创建会话</button>
+                    <div id="session-info" style="margin-top:12px"></div>
+                </div>
+
+                <!-- 文件上传 -->
+                <div class="card">
+                    <h2>② 文档上传</h2>
+                    <div class="upload-area" onclick="document.getElementById('file-input').click()">
+                        <div class="icon">📎</div>
+                        <p>点击或拖拽上传需求文档<br>.pdf / .docx / .xlsx / .txt / .md</p>
+                    </div>
+                    <input type="file" id="file-input" style="display:none" onchange="uploadFile(event)" />
+                    <div class="file-list" id="file-list"></div>
+                </div>
+
+                <!-- 生成操作 -->
+                <div class="card">
+                    <h2>③ 生成操作</h2>
+                    <button class="btn" id="btn-req" onclick="generateRequirements()" disabled>生成需求点</button>
+                    <br><br>
+                    <button class="btn" id="btn-tc" onclick="generateTestcases()" disabled>生成测试用例</button>
+                    <br><br>
+                    <button class="btn btn-secondary" id="btn-script" onclick="generateScripts()" disabled>生成测试脚本</button>
+                </div>
+            </div>
+
+            <!-- 右侧：结果展示 -->
+            <div>
+                <div class="card">
+                    <div class="workflow">
+                        <div class="workflow-step" id="step-1"><div class="num">1</div><div class="label">创建会话</div></div>
+                        <div class="workflow-step" id="step-2"><div class="num">2</div><div class="label">上传文档</div></div>
+                        <div class="workflow-step" id="step-3"><div class="num">3</div><div class="label">需求点</div></div>
+                        <div class="workflow-step" id="step-4"><div class="num">4</div><div class="label">测试用例</div></div>
+                        <div class="workflow-step" id="step-5"><div class="num">5</div><div class="label">测试脚本</div></div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab('stream')">实时输出</div>
+                        <div class="tab" onclick="switchTab('reqs')">需求点</div>
+                        <div class="tab" onclick="switchTab('cases')">测试用例</div>
+                        <div class="tab" onclick="switchTab('scripts')">测试脚本</div>
+                    </div>
+
+                    <div class="tab-content active" id="tab-stream">
+                        <div class="stream-output" id="stream-output">
+                            <span class="event-status">等待操作...</span>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-reqs">
+                        <div id="reqs-content"><div class="empty">暂无需求点</div></div>
+                    </div>
+
+                    <div class="tab-content" id="tab-cases">
+                        <div id="cases-content"><div class="empty">暂无测试用例</div></div>
+                    </div>
+
+                    <div class="tab-content" id="tab-scripts">
+                        <div id="scripts-content"><div class="empty">暂无测试脚本</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+const API = '';  // 同源
+let sessionId = null;
+let fileUploaded = false;
+
+// --- 工具函数 ---
+function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast toast-' + type + ' show';
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function appendStream(text, cls='event-chunk') {
+    const out = document.getElementById('stream-output');
+    const span = document.createElement('div');
+    span.className = cls;
+    span.textContent = text;
+    out.appendChild(span);
+    out.scrollTop = out.scrollHeight;
+}
+
+function clearStream() {
+    document.getElementById('stream-output').innerHTML = '';
+}
+
+function setStep(step) {
+    for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById('step-' + i);
+        el.classList.remove('active', 'done');
+        if (i < step) el.classList.add('done');
+        if (i === step) el.classList.add('active');
+    }
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// --- 健康检查 ---
+async function checkHealth() {
+    try {
+        const resp = await fetch(API + '/health');
+        const data = await resp.json();
+        const st = document.getElementById('hermes-status');
+        if (data.data.hermes_available) {
+            st.innerHTML = '<span class="dot dot-ok"></span>Hermes 已连接';
+        } else {
+            st.innerHTML = '<span class="dot dot-warn"></span>Mock 模式 (Hermes 未安装)';
+        }
+    } catch (e) {
+        document.getElementById('hermes-status').innerHTML = '<span class="dot dot-err"></span>服务未启动';
+    }
+}
+
+// --- 创建会话 ---
+async function createSession() {
+    const title = document.getElementById('session-title').value;
+    const domain = document.getElementById('domain-select').value;
+    const resp = await fetch(API + '/api/v1/sessions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title, domain})
+    });
+    const data = await resp.json();
+    if (data.code === 0) {
+        sessionId = data.data.session_id;
+        document.getElementById('session-status').textContent = '会话: ' + sessionId.slice(0, 16) + '...';
+        document.getElementById('session-info').innerHTML = `
+            <div class="info-row">ID: <span>${data.data.session_id}</span></div>
+            <div class="info-row">域: <span>${data.data.domain}</span></div>
+            <div class="info-row">状态: <span style="color:var(--success)">${data.data.status}</span></div>
+        `;
+        showToast('会话创建成功');
+        setStep(2);
+    } else {
+        showToast('创建失败: ' + data.message, 'error');
+    }
+}
+
+// --- 上传文件 ---
+async function uploadFile(event) {
+    if (!sessionId) { showToast('请先创建会话', 'error'); return; }
+    const file = event.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/upload`, {
+        method: 'POST', body: formData
+    });
+    const data = await resp.json();
+    if (data.code === 0) {
+        fileUploaded = true;
+        const fl = document.getElementById('file-list');
+        fl.innerHTML = `<div class="file-item">📄 ${data.data.filename} <span style="color:var(--text-dim)">(${(data.data.size/1024).toFixed(1)}KB)</span></div>`;
+        document.getElementById('btn-req').disabled = false;
+        setStep(3);
+        showToast('文件上传成功');
+    } else {
+        showToast('上传失败: ' + data.message, 'error');
+    }
+}
+
+// --- 生成需求点 ---
+async function generateRequirements() {
+    if (!sessionId) return;
+    clearStream(); switchTab('stream');
+    document.getElementById('btn-req').disabled = true;
+    appendStream('▶ 生成需求点中...\n', 'event-status');
+    setStep(3);
+
+    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/requirements`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, stream: true})
+    });
+
+    // SSE 流式读取
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+
+    while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            if (line.startsWith('data:')) {
+                try {
+                    const evt = JSON.parse(line.slice(5).trim());
+                    if (evt.event === 'status' || evt.status) {
+                        appendStream('[状态] ' + JSON.stringify(evt.status || evt.data) + '\n', 'event-status');
+                    } else if (evt.chunk) {
+                        appendStream(evt.chunk, 'event-chunk');
+                        fullText += evt.chunk;
+                    } else if (evt.event === 'result' || evt.data !== undefined) {
+                        const resultData = evt.data !== undefined ? evt.data : evt;
+                        appendStream('\n\n✅ 需求点生成完成\n', 'event-result');
+                        renderRequirements(resultData);
+                        document.getElementById('btn-tc').disabled = false;
+                        setStep(4);
+                    } else if (evt.event === 'error') {
+                        appendStream('\n❌ ' + (evt.message || '错误') + '\n', 'event-error');
+                    }
+                } catch(e) {
+                    // 非 JSON 行，忽略
+                }
+            }
+        }
+    }
+    document.getElementById('btn-req').disabled = false;
+}
+
+function renderRequirements(data) {
+    let html = '';
+    if (Array.isArray(data)) {
+        html = '<table class="result-table"><tr><th>ID</th><th>功能名称</th><th>需求描述</th><th>优先级</th></tr>';
+        data.forEach(r => {
+            html += `<tr><td style="font-family:var(--mono)">${r.id||'-'}</td><td>${r.name||r.title||'-'}</td><td style="font-size:12px;color:var(--text-dim)">${(r.description||'').slice(0,80)}...</td><td>${r.priority||'-'}</td></tr>`;
+        });
+        html += '</table>';
+    } else if (typeof data === 'string') {
+        html = `<div class="json-view">${data}</div>`;
+    } else {
+        html = `<div class="json-view">${JSON.stringify(data, null, 2)}</div>`;
+    }
+    document.getElementById('reqs-content').innerHTML = html;
+}
+
+// --- 生成测试用例 ---
+async function generateTestcases() {
+    if (!sessionId) return;
+    clearStream(); switchTab('stream');
+    document.getElementById('btn-tc').disabled = true;
+    appendStream('▶ 生成测试用例中...\n', 'event-status');
+    setStep(4);
+
+    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/testcases`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, stream: true})
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            if (line.startsWith('data:')) {
+                try {
+                    const evt = JSON.parse(line.slice(5).trim());
+                    if (evt.chunk) { appendStream(evt.chunk, 'event-chunk'); }
+                    else if (evt.event === 'result' || evt.data !== undefined) {
+                        const resultData = evt.data !== undefined ? evt.data : evt;
+                        appendStream('\n\n✅ 测试用例生成完成\n', 'event-result');
+                        renderTestcases(resultData);
+                        document.getElementById('btn-script').disabled = false;
+                        setStep(5);
+                    } else if (evt.event === 'error') {
+                        appendStream('\n❌ ' + (evt.message||'错误') + '\n', 'event-error');
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+    document.getElementById('btn-tc').disabled = false;
+}
+
+function renderTestcases(data) {
+    let html = '';
+    if (Array.isArray(data)) {
+        html = '<table class="result-table"><tr><th>ID</th><th>标题</th><th>级别</th><th>前置条件</th><th>预期结果</th></tr>';
+        data.forEach(c => {
+            const level = (c.level||'').toUpperCase();
+            html += `<tr><td style="font-family:var(--mono)">${c.id||'-'}</td><td>${c.title||'-'}</td><td><span class="level-badge level-${level}">${level}</span></td><td style="font-size:12px;color:var(--text-dim)">${(c.precondition||'').slice(0,50)}</td><td style="font-size:12px;color:var(--text-dim)">${(c.expected||'').slice(0,50)}</td></tr>`;
+        });
+        html += '</table>';
+    } else {
+        html = `<div class="json-view">${JSON.stringify(data, null, 2)}</div>`;
+    }
+    document.getElementById('cases-content').innerHTML = html;
+}
+
+// --- 生成测试脚本 ---
+async function generateScripts() {
+    if (!sessionId) return;
+    clearStream(); switchTab('stream');
+    document.getElementById('btn-script').disabled = true;
+    appendStream('▶ 生成测试脚本中...\n', 'event-status');
+    setStep(5);
+
+    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/scripts`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id: sessionId, stream: true})
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            if (line.startsWith('data:')) {
+                try {
+                    const evt = JSON.parse(line.slice(5).trim());
+                    if (evt.chunk) { appendStream(evt.chunk, 'event-chunk'); }
+                    else if (evt.event === 'result' || evt.data !== undefined) {
+                        const resultData = evt.data !== undefined ? evt.data : evt;
+                        appendStream('\n\n✅ 测试脚本生成完成\n', 'event-result');
+                        renderScripts(resultData);
+                    } else if (evt.event === 'error') {
+                        appendStream('\n❌ ' + (evt.message||'错误') + '\n', 'event-error');
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+    document.getElementById('btn-script').disabled = false;
+}
+
+function renderScripts(data) {
+    let html = '';
+    if (Array.isArray(data)) {
+        data.forEach(s => {
+            html += `<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;margin-bottom:6px">📄 ${s.id||s.case_id||'脚本'}</div><div class="code-block">${(s.script||s.code||s.content||JSON.stringify(s,null,2)).replace(/</g,'&lt;')}</div></div>`;
+        });
+    } else {
+        html = `<div class="code-block">${JSON.stringify(data, null, 2).replace(/</g,'&lt;')}</div>`;
+    }
+    document.getElementById('scripts-content').innerHTML = html;
+}
+
+// --- 初始化 ---
+checkHealth();
+setStep(1);
+</script>
+</body>
+</html>

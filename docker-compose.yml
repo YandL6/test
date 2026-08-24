@@ -1,0 +1,110 @@
+version: "3.9"
+
+# ============================================
+# Hermes VCU Gateway — Phase 3 Docker 编排
+# 包含 API 网关 + SGLang 连接 + RAGFlow + Nginx
+# A 模块 (炉龙) 负责维护
+# ============================================
+
+services:
+  # --- B 模块: API 网关 ---
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-vcu-gateway
+    ports:
+      - "8100:8100"
+    volumes:
+      # 开发模式：volume 挂载热更新；生产模式可注释掉这些行用镜像内 COPY
+      - ./hermes-agent:/app/hermes-agent
+      - ./api_gateway:/app/api_gateway
+      - ./skills:/app/skills
+      - ./patches:/app/patches
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_PORT=8100
+      # Phase 3: SGLang 连接配置（由 .env 注入，这里仅声明映射关系）
+      # 实际值从 .env 文件读取：HERMES_LLM_PROVIDER / HERMES_LLM_MODEL / HERMES_LLM_API_KEY / HERMES_LLM_BASE_URL
+      - PYTHONPATH=/app
+    depends_on:
+      ragflow:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    networks:
+      - vcu-net
+
+  # --- D 模块: RAGFlow 知识库 ---
+  ragflow:
+    image: infiniflow/ragflow:latest
+    container_name: vcu-ragflow
+    ports:
+      - "9380:9380"
+    volumes:
+      - ragflow-data:/ragflow/data
+    environment:
+      - SVR_HTTP_PORT=9380
+    restart: unless-stopped
+    networks:
+      - vcu-net
+
+  # --- A 模块: Nginx 反向代理 ---
+  nginx:
+    image: nginx:alpine
+    container_name: vcu-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - vcu-net
+
+  # ============================================
+  # Phase 3: SGLang 推理服务（可选，通常独立部署）
+  # 如果 SGLang 已在宿主机或独立服务器上运行，注释掉此服务，
+  # 在 .env 中将 HERMES_LLM_BASE_URL 指向 SGLang 的实际地址即可。
+  # ============================================
+  # sglang:
+  #   image: sglang/sglang:latest
+  #   container_name: vcu-sglang
+  #   ports:
+  #     - "30000:30000"
+  #   volumes:
+  #     - /path/to/models:/models
+  #   command: >
+  #     python3 -m sglang.launch_server
+  #     --model-path /models/qwen3-4b
+  #     --port 30000
+  #     --host 0.0.0.0
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   restart: unless-stopped
+  #   networks:
+  #     - vcu-net
+
+volumes:
+  ragflow-data:
+
+networks:
+  vcu-net:
+    driver: bridge
