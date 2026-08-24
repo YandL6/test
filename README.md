@@ -182,3 +182,34 @@ SGLang 提供 OpenAI 兼容的 `/v1` 端点，但不在 Hermes 的 provider rout
 | **A 炉龙** | docker-compose.yml + nginx.conf + Dockerfile + .env 中的基础设施配置 |
 | **C 阳兴** | 全部 REST API 接口；SSE 流式协议；`/health/sglang` 连通性诊断 |
 | **D 淞豪** | domain_router.py 中的 skill_path；skills/ 目录下的 SKILL.md |
+
+
+
+## hermes-sglang-deploy 技能包
+
+本仓库还包含 `hermes-sglang-deploy/` 目录——将 Hermes+SGLang 集成部署流程沉淀为可复用技能，已在 Aily SkillHub 发布。
+
+```
+hermes-sglang-deploy/
+├── SKILL.md              # 7 步部署流程
+├── scripts/              # 测试脚本
+│   ├── test_sglang_connection.py  # SGLang 冒烟测试
+│   └── test_integration.py        # 端到端集成测试
+├── references/           # 参考文档
+│   ├── sglang_config.md          # 环境变量映射 + provider 路由
+│   ├── architecture.md           # Hermes 封装 + 错误分类 + JSON 容错
+│   └── troubleshooting.md        # 排障指南
+└── assets/               # 模板和参考实现
+    ├── env.example               # .env 配置模板
+    ├── Dockerfile               # 生产镜像
+    ├── docker-compose.yml       # Docker 编排
+    ├── config.py                # 全局配置管理
+    ├── hermes_service.py        # Hermes AIAgent 封装核心
+    └── health.py                # 健康检查路由
+```
+
+SkillHub 分享链接：https://aily.feishu.cn/skills/shared/ad1612b4-e4b2-4dcf-b25d-356d53ab76e3
+
+## License
+
+MIT
