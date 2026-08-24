@@ -3,203 +3,733 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VCU 测试用例生成平台 — Phase 1</title>
+    <title>Hermes VCU Gateway — 智能测试用例生成平台</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --bg: #0a0e1a; --surface: #131825; --border: #2a3447;
-            --primary: #f59e0b; --primary-dim: #b45309;
-            --text: #e2e8f0; --text-dim: #94a3b8;
-            --success: #10b981; --error: #ef4444;
-            --mono: 'JetBrains Mono', 'Consolas', monospace;
+            /* 重庆大学校色 — 深红 */
+            --cqu-red: #C81623;
+            --cqu-red-dark: #A01220;
+            --cqu-red-light: #E84050;
+            --cqu-red-bg: #FDF2F3;
+            /* 中性色 */
+            --bg: #F7F7F8;
+            --surface: #FFFFFF;
+            --sidebar-bg: #F9F9FA;
+            --border: #E6E6EB;
+            --border-light: #F0F0F2;
+            --text: #1A1A2E;
+            --text-secondary: #555566;
+            --text-tertiary: #9999AA;
+            --hover-bg: #F0F0F4;
+            --success: #16A34A;
+            --error: #DC2626;
+            --warning: #EAB308;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+            --radius: 10px;
+            --radius-sm: 6px;
+            --mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
         }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-        .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
-        .header h1 { font-size: 18px; font-weight: 600; }
-        .header .badge { background: var(--primary-dim); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-family: var(--mono); }
-        .header .status { margin-left: auto; font-size: 13px; color: var(--text-dim); }
-        .header .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-        .dot-ok { background: var(--success); } .dot-warn { background: var(--primary); } .dot-err { background: var(--error); }
-        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
-        .grid { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-        .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
-        .form-group input, .form-group select, .form-group textarea {
-            width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-            padding: 10px 12px; color: var(--text); font-size: 14px; font-family: inherit;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
         }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
-        .btn {
-            background: var(--primary); color: #000; border: none; border-radius: 6px;
-            padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .2s;
+
+        /* ==================== 布局 ==================== */
+        .app { display: flex; height: 100vh; }
+
+        /* --- 左侧栏 --- */
+        .sidebar {
+            width: 272px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            transition: margin-left .25s ease;
         }
-        .btn:hover { opacity: 0.85; }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .btn-secondary { background: var(--border); color: var(--text); }
-        .btn-sm { padding: 6px 14px; font-size: 12px; }
-        .upload-area { border: 2px dashed var(--border); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: border-color .2s; }
-        .upload-area:hover { border-color: var(--primary); }
-        .upload-area p { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
-        .upload-area .icon { font-size: 32px; }
-        .file-list { margin-top: 12px; }
-        .file-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 6px; font-size: 13px; font-family: var(--mono); }
-        .file-item .del { margin-left: auto; color: var(--error); cursor: pointer; }
-        .workflow { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        .workflow-step { flex: 1; min-width: 120px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; position: relative; }
-        .workflow-step .num { font-size: 20px; font-weight: 700; color: var(--text-dim); }
-        .workflow-step .label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-        .workflow-step.active { border-color: var(--primary); }
-        .workflow-step.active .num { color: var(--primary); }
-        .workflow-step.active .label { color: var(--text); }
-        .workflow-step.done { border-color: var(--success); }
-        .workflow-step.done .num { color: var(--success); }
-        .stream-output { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
-        .stream-output .event-status { color: var(--text-dim); }
-        .stream-output .event-chunk { color: var(--text); }
-        .stream-output .event-result { color: var(--success); }
-        .stream-output .event-error { color: var(--error); }
+        .sidebar.collapsed { margin-left: -272px; }
+
+        .sidebar-header {
+            padding: 16px 16px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-logo {
+            width: 36px; height: 36px;
+            background: var(--cqu-red);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: #fff; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .sidebar-title { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
+        .sidebar-subtitle { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; }
+
+        .new-session-btn {
+            margin: 4px 12px 8px;
+            padding: 10px 14px;
+            background: var(--cqu-red);
+            color: #fff;
+            border: 1px solid var(--cqu-red-dark);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background .15s;
+        }
+        .new-session-btn:hover { background: var(--cqu-red-dark); }
+        .new-session-btn .icon { font-size: 18px; line-height: 1; }
+
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 8px;
+        }
+        .session-group-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            padding: 12px 8px 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+        .session-item {
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 1px;
+            transition: background .12s;
+        }
+        .session-item:hover { background: var(--hover-bg); }
+        .session-item.active { background: var(--cqu-red-bg); }
+        .session-item.active .session-name { color: var(--cqu-red); font-weight: 600; }
+        .session-item .session-icon { font-size: 14px; color: var(--text-tertiary); flex-shrink: 0; }
+        .session-name { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .session-item .session-del { margin-left: auto; opacity: 0; font-size: 14px; color: var(--text-tertiary); transition: opacity .12s; }
+        .session-item:hover .session-del { opacity: 1; }
+        .session-item .session-del:hover { color: var(--error); }
+
+        .sidebar-footer {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-avatar {
+            width: 32px; height: 32px;
+            background: var(--cqu-red);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 14px; font-weight: 600;
+            flex-shrink: 0;
+        }
+        .user-info-text { font-size: 13px; color: var(--text-secondary); line-height: 1.3; }
+        .user-info-text .role { font-size: 11px; color: var(--text-tertiary); }
+
+        /* --- 右侧主区域 --- */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            min-width: 0;
+        }
+        .main-header {
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            background: var(--surface);
+            z-index: 10;
+        }
+        .sidebar-toggle {
+            width: 32px; height: 32px;
+            border: none; background: none; cursor: pointer;
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; color: var(--text-secondary);
+        }
+        .sidebar-toggle:hover { background: var(--hover-bg); }
+        .main-header-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .health-indicator {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-tertiary);
+            padding: 4px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+        .health-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-ok { background: var(--success); } .dot-warn { background: var(--warning); } .dot-err { background: var(--error); }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 欢迎屏 --- */
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            max-width: 760px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .welcome-logo {
+            width: 64px; height: 64px;
+            background: var(--cqu-red);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; color: #fff; font-weight: 700;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 16px rgba(200, 22, 35, 0.3);
+        }
+        .welcome-title { font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .welcome-subtitle { font-size: 15px; color: var(--text-tertiary); margin-bottom: 36px; text-align: center; }
+
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; justify-content: center; }
+        .mode-btn {
+            padding: 8px 18px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .mode-btn:hover { border-color: var(--cqu-red); color: var(--cqu-red); }
+        .mode-btn.active { background: var(--cqu-red); color: #fff; border-color: var(--cqu-red); }
+
+        .input-box {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            box-shadow: var(--shadow);
+        }
+        .input-box:focus-within { border-color: var(--cqu-red); box-shadow: 0 0 0 3px rgba(200,22,35,0.08); }
+        .session-title-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            color: var(--text);
+            background: transparent;
+            resize: none;
+            line-height: 1.6;
+            min-height: 44px;
+            font-family: inherit;
+        }
+        .session-title-input::placeholder { color: var(--text-tertiary); }
+        .input-box-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-light);
+        }
+        .input-hint { font-size: 12px; color: var(--text-tertiary); }
+        .create-btn {
+            padding: 8px 20px;
+            background: var(--cqu-red);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .15s;
+        }
+        .create-btn:hover { background: var(--cqu-red-dark); }
+        .create-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* --- 工作流界面 --- */
+        .workflow-container {
+            flex: 1;
+            max-width: 860px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 24px 24px 120px;
+        }
+        .workflow-progress {
+            display: flex;
+            gap: 0;
+            margin-bottom: 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .wf-step {
+            flex: 1;
+            padding: 14px 8px;
+            text-align: center;
+            position: relative;
+            border-right: 1px solid var(--border-light);
+        }
+        .wf-step:last-child { border-right: none; }
+        .wf-step-num {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: var(--border);
+            color: var(--text-tertiary);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .wf-step-label { font-size: 12px; color: var(--text-tertiary); }
+        .wf-step.active .wf-step-num { background: var(--cqu-red); color: #fff; }
+        .wf-step.active .wf-step-label { color: var(--cqu-red); font-weight: 600; }
+        .wf-step.done .wf-step-num { background: var(--success); color: #fff; }
+        .wf-step.done .wf-step-label { color: var(--text-secondary); }
+
+        /* 消息卡片 */
+        .msg-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        .msg-card-header {
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .msg-card-icon {
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
+        }
+        .icon-upload { background: #E8F0FE; color: #1A73E8; }
+        .icon-req { background: #FEF3C7; color: #D97706; }
+        .icon-tc { background: #D1FAE5; color: #059669; }
+        .icon-script { background: #EDE9FE; color: #7C3AED; }
+        .msg-card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+        .msg-card-meta { margin-left: auto; font-size: 12px; color: var(--text-tertiary); }
+        .msg-card-body { padding: 14px 18px; }
+
+        /* 上传区 */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--cqu-red);
+            background: var(--cqu-red-bg);
+        }
+        .upload-zone .upload-icon { font-size: 28px; margin-bottom: 8px; }
+        .upload-zone p { font-size: 13px; color: var(--text-tertiary); }
+        .uploaded-file {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px;
+            background: var(--cqu-red-bg);
+            border: 1px solid #F5D0D5;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+        }
+        .uploaded-file .file-name { flex: 1; color: var(--text); }
+        .uploaded-file .file-size { color: var(--text-tertiary); font-size: 12px; font-family: var(--mono); }
+
+        /* 生成按钮 */
+        .gen-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .gen-btn {
+            padding: 10px 18px;
+            border: 1px solid var(--cqu-red);
+            background: var(--surface);
+            color: var(--cqu-red);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all .15s;
+        }
+        .gen-btn:hover:not(:disabled) { background: var(--cqu-red); color: #fff; }
+        .gen-btn:disabled { opacity: .35; cursor: not-allowed; border-color: var(--border); color: var(--text-tertiary); }
+        .gen-btn.primary { background: var(--cqu-red); color: #fff; }
+        .gen-btn.primary:hover:not(:disabled) { background: var(--cqu-red-dark); }
+
+        /* 流式输出 */
+        .stream-box {
+            background: #FAFAFB;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            line-height: 1.7;
+            max-height: 320px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .stream-box .ev-status { color: var(--text-tertiary); }
+        .stream-box .ev-chunk { color: var(--text); }
+        .stream-box .ev-result { color: var(--success); font-weight: 600; }
+        .stream-box .ev-error { color: var(--error); }
+
+        /* 结果表 */
         .result-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .result-table th { text-align: left; padding: 8px 12px; background: var(--bg); color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); }
-        .result-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-        .result-table tr:hover { background: var(--bg); }
-        .level-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
-        .level-S0 { background: #1e3a5f; color: #60a5fa; } .level-S1 { background: #1e3f3a; color: #34d399; }
-        .level-S2 { background: #3f2a1e; color: #fbbf24; } .level-S3 { background: #3f1e1e; color: #f87171; }
-        .level-S4 { background: #2a1e3f; color: #a78bfa; }
-        .empty { text-align: center; padding: 40px; color: var(--text-dim); font-size: 14px; }
-        .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
-        .tab { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--text-dim); border-bottom: 2px solid transparent; transition: all .2s; }
-        .tab:hover { color: var(--text); }
-        .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .result-table th {
+            text-align: left; padding: 8px 12px;
+            background: #FAFAFB; color: var(--text-tertiary);
+            font-weight: 600; font-size: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .result-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light); }
+        .result-table tr:hover td { background: #FAFAFB; }
+        .result-table .mono { font-family: var(--mono); font-size: 12px; }
+        .result-table .dim { color: var(--text-tertiary); font-size: 12px; }
+
+        .level-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: var(--mono); }
+        .lv-S0 { background: #DBEAFE; color: #2563EB; } .lv-S1 { background: #D1FAE5; color: #059669; }
+        .lv-S2 { background: #FEF3C7; color: #D97706; } .lv-S3 { background: #FEE2E2; color: #DC2626; }
+        .lv-S4 { background: #EDE9FE; color: #7C3AED; }
+
+        /* 代码块 */
+        .code-block {
+            background: #1E1E2E;
+            color: #CDD6F4;
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            font-family: var(--mono);
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        /* 标签页 */
+        .tabs { display: flex; gap: 2px; margin-bottom: 12px; }
+        .tab {
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-tertiary);
+            border-bottom: 2px solid transparent;
+            transition: all .15s;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        }
+        .tab:hover { color: var(--text-secondary); background: var(--hover-bg); }
+        .tab.active { color: var(--cqu-red); border-bottom-color: var(--cqu-red); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 12px; overflow-x: auto; white-space: pre; }
-        .json-view { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 6px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity .3s; }
-        .toast.show { opacity: 1; }
+
+        .json-view {
+            background: #FAFAFB; border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm); padding: 12px;
+            font-family: var(--mono); font-size: 12px;
+            overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+            max-height: 300px; overflow-y: auto;
+        }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-tertiary); font-size: 14px; }
+
+        /* 底部操作栏 */
+        .bottom-bar {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+        .bottom-bar .kb-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .bottom-bar .kb-input:focus { border-color: var(--cqu-red); background: var(--surface); }
+        .bottom-bar .kb-btn {
+            padding: 8px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .bottom-bar .kb-btn:hover { border-color: var(--cqu-red); color: var(--cqu-red); }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px; font-weight: 500;
+            z-index: 9999;
+            opacity: 0;
+            transition: all .3s;
+            box-shadow: var(--shadow-lg);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast-success { background: var(--success); color: #fff; }
         .toast-error { background: var(--error); color: #fff; }
-        .info-row { display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
-        .info-row span { font-family: var(--mono); color: var(--text); }
+        .toast-info { background: var(--text); color: #fff; }
+
+        /* 加载动画 */
+        .loading-dots span {
+            display: inline-block;
+            animation: blink 1.4s infinite both;
+        }
+        .loading-dots span:nth-child(2) { animation-delay: .2s; }
+        .loading-dots span:nth-child(3) { animation-delay: .4s; }
+        @keyframes blink { 0%,80%,100% { opacity: .2; } 40% { opacity: 1; } }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #D0D0D5; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #B0B0B5; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .sidebar { position: absolute; z-index: 100; height: 100%; }
+            .sidebar.collapsed { margin-left: -272px; }
+            .workflow-container { padding: 16px 12px 120px; }
+            .welcome-screen { padding: 20px 16px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>VCU 测试用例生成平台</h1>
-        <span class="badge">PHASE 1</span>
-        <div class="status">
-            <span id="hermes-status"><span class="dot dot-warn"></span>检查中...</span>
-            <span style="margin-left:16px" id="session-status">未创建会话</span>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="grid">
-            <!-- 左侧：操作面板 -->
+<div class="app">
+    <!-- ========== 左侧栏 ========== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">重</div>
             <div>
-                <!-- 会话管理 -->
-                <div class="card">
-                    <h2>① 会话管理</h2>
-                    <div class="form-group">
-                        <label>会话标题</label>
-                        <input type="text" id="session-title" value="VCU档位管理测试" />
+                <div class="sidebar-title">VCU 智能测试</div>
+                <div class="sidebar-subtitle">重庆大学 · Hermes Gateway</div>
+            </div>
+        </div>
+        <button class="new-session-btn" onclick="showWelcome()">
+            <span class="icon">+</span>
+            <span>新建会话</span>
+        </button>
+        <div class="session-list" id="session-list">
+            <div class="empty-state" style="padding: 20px 8px; font-size: 12px;">暂无历史会话</div>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-avatar">黎</div>
+            <div class="user-info-text">
+                <div>黎佳鑫</div>
+                <div class="role">赛力斯集团 · 重庆大学</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ========== 右侧主区域 ========== -->
+    <div class="main">
+        <div class="main-header">
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+            <span class="main-header-title" id="header-title">Hermes VCU Gateway</span>
+            <div class="health-indicator" id="health-indicator">
+                <span class="health-dot dot-warn"></span>
+                <span>检查中...</span>
+            </div>
+        </div>
+
+        <div class="main-content" id="main-content">
+            <!-- 欢迎屏 -->
+            <div class="welcome-screen" id="welcome-screen">
+                <div class="welcome-logo">重</div>
+                <h1 class="welcome-title">Hermes VCU Gateway</h1>
+                <p class="welcome-subtitle">基于 Hermes AI Agent + SGLang 大模型<br>自动生成 VCU 测试用例与自动化脚本</p>
+                <div class="mode-selector" id="mode-selector">
+                    <div class="mode-btn active" data-domain="vcu_gear" onclick="selectMode(this)">VCU 档位管理</div>
+                    <div class="mode-btn" data-domain="vcu_torque" onclick="selectMode(this)">VCU 扭矩管理</div>
+                    <div class="mode-btn" data-domain="general" onclick="selectMode(this)">通用模式</div>
+                </div>
+                <div class="input-box">
+                    <textarea class="session-title-input" id="welcome-title-input"
+                        placeholder="输入会话标题，例如：P挡至D挡切换测试用例生成" rows="2"></textarea>
+                    <div class="input-box-footer">
+                        <span class="input-hint">创建会话后即可上传文档、生成需求点与测试用例</span>
+                        <button class="create-btn" id="welcome-create-btn" onclick="createSessionFromWelcome()">
+                            创建会话
+                            <span style="font-size:16px">→</span>
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <label>功能域</label>
-                        <select id="domain-select">
-                            <option value="vcu_gear">VCU 档位管理</option>
-                            <option value="vcu_torque">VCU 扭矩管理</option>
-                            <option value="general">通用</option>
-                        </select>
-                    </div>
-                    <button class="btn" onclick="createSession()">创建会话</button>
-                    <div id="session-info" style="margin-top:12px"></div>
+                </div>
+            </div>
+
+            <!-- 工作流界面 -->
+            <div class="workflow-container" id="workflow-view" style="display:none;">
+                <!-- 进度条 -->
+                <div class="workflow-progress" id="wf-progress">
+                    <div class="wf-step" id="wf-1"><span class="wf-step-num">1</span><div class="wf-step-label">创建会话</div></div>
+                    <div class="wf-step" id="wf-2"><span class="wf-step-num">2</span><div class="wf-step-label">上传文档</div></div>
+                    <div class="wf-step" id="wf-3"><span class="wf-step-num">3</span><div class="wf-step-label">需求点</div></div>
+                    <div class="wf-step" id="wf-4"><span class="wf-step-num">4</span><div class="wf-step-label">测试用例</div></div>
+                    <div class="wf-step" id="wf-5"><span class="wf-step-num">5</span><div class="wf-step-label">测试脚本</div></div>
                 </div>
 
-                <!-- 文件上传 -->
-                <div class="card">
-                    <h2>② 文档上传</h2>
-                    <div class="upload-area" onclick="document.getElementById('file-input').click()">
-                        <div class="icon">📎</div>
-                        <p>点击或拖拽上传需求文档<br>.pdf / .docx / .xlsx / .txt / .md</p>
+                <!-- 会话信息 -->
+                <div class="msg-card" id="session-info-card">
+                    <div class="msg-card-header">
+                        <div class="msg-card-icon" style="background:var(--cqu-red-bg);color:var(--cqu-red);">●</div>
+                        <span class="msg-card-title" id="session-info-title">会话</span>
+                        <span class="msg-card-meta" id="session-info-meta"></span>
                     </div>
-                    <input type="file" id="file-input" style="display:none" onchange="uploadFile(event)" />
-                    <div class="file-list" id="file-list"></div>
+                    <div class="msg-card-body">
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;">
+                            <div><span style="color:var(--text-tertiary)">功能域：</span><span id="session-domain" style="font-weight:600"></span></div>
+                            <div><span style="color:var(--text-tertiary)">状态：</span><span id="session-status-text" style="color:var(--success);font-weight:600"></span></div>
+                            <div><span style="color:var(--text-tertiary)">ID：</span><span class="mono" id="session-id-short" style="font-family:var(--mono);font-size:12px;"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文档上传 -->
+                <div class="msg-card" id="upload-card">
+                    <div class="msg-card-header">
+                        <div class="msg-card-icon icon-upload">📎</div>
+                        <span class="msg-card-title">需求文档</span>
+                        <span class="msg-card-meta">支持 PDF / DOCX / XLSX / TXT / MD</span>
+                    </div>
+                    <div class="msg-card-body" id="upload-body">
+                        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+                            <div class="upload-icon">📄</div>
+                            <p>点击或拖拽文件到此处上传</p>
+                        </div>
+                        <input type="file" id="file-input" style="display:none" onchange="uploadFile(event)" />
+                    </div>
                 </div>
 
                 <!-- 生成操作 -->
-                <div class="card">
-                    <h2>③ 生成操作</h2>
-                    <button class="btn" id="btn-req" onclick="generateRequirements()" disabled>生成需求点</button>
-                    <br><br>
-                    <button class="btn" id="btn-tc" onclick="generateTestcases()" disabled>生成测试用例</button>
-                    <br><br>
-                    <button class="btn btn-secondary" id="btn-script" onclick="generateScripts()" disabled>生成测试脚本</button>
-                </div>
-            </div>
-
-            <!-- 右侧：结果展示 -->
-            <div>
-                <div class="card">
-                    <div class="workflow">
-                        <div class="workflow-step" id="step-1"><div class="num">1</div><div class="label">创建会话</div></div>
-                        <div class="workflow-step" id="step-2"><div class="num">2</div><div class="label">上传文档</div></div>
-                        <div class="workflow-step" id="step-3"><div class="num">3</div><div class="label">需求点</div></div>
-                        <div class="workflow-step" id="step-4"><div class="num">4</div><div class="label">测试用例</div></div>
-                        <div class="workflow-step" id="step-5"><div class="num">5</div><div class="label">测试脚本</div></div>
+                <div class="msg-card">
+                    <div class="msg-card-header">
+                        <div class="msg-card-icon icon-req">⚙</div>
+                        <span class="msg-card-title">生成操作</span>
                     </div>
-
-                    <div class="tabs">
-                        <div class="tab active" onclick="switchTab('stream')">实时输出</div>
-                        <div class="tab" onclick="switchTab('reqs')">需求点</div>
-                        <div class="tab" onclick="switchTab('cases')">测试用例</div>
-                        <div class="tab" onclick="switchTab('scripts')">测试脚本</div>
-                    </div>
-
-                    <div class="tab-content active" id="tab-stream">
-                        <div class="stream-output" id="stream-output">
-                            <span class="event-status">等待操作...</span>
+                    <div class="msg-card-body">
+                        <div class="gen-actions">
+                            <button class="gen-btn primary" id="btn-req" onclick="generateRequirements()" disabled>
+                                生成需求点
+                            </button>
+                            <button class="gen-btn" id="btn-tc" onclick="generateTestcases()" disabled>
+                                生成测试用例
+                            </button>
+                            <button class="gen-btn" id="btn-script" onclick="generateScripts()" disabled>
+                                生成测试脚本
+                            </button>
                         </div>
                     </div>
+                </div>
 
-                    <div class="tab-content" id="tab-reqs">
-                        <div id="reqs-content"><div class="empty">暂无需求点</div></div>
+                <!-- 流式输出 + 结果 -->
+                <div class="msg-card">
+                    <div class="msg-card-header">
+                        <div class="msg-card-icon icon-tc">📊</div>
+                        <span class="msg-card-title">生成结果</span>
                     </div>
-
-                    <div class="tab-content" id="tab-cases">
-                        <div id="cases-content"><div class="empty">暂无测试用例</div></div>
-                    </div>
-
-                    <div class="tab-content" id="tab-scripts">
-                        <div id="scripts-content"><div class="empty">暂无测试脚本</div></div>
+                    <div class="msg-card-body">
+                        <div class="tabs" id="result-tabs">
+                            <div class="tab active" onclick="switchTab(this,'stream')">实时输出</div>
+                            <div class="tab" onclick="switchTab(this,'reqs')">需求点</div>
+                            <div class="tab" onclick="switchTab(this,'cases')">测试用例</div>
+                            <div class="tab" onclick="switchTab(this,'scripts')">测试脚本</div>
+                        </div>
+                        <div class="tab-content active" id="tab-stream">
+                            <div class="stream-box" id="stream-output">
+                                <span class="ev-status">等待操作...</span>
+                            </div>
+                        </div>
+                        <div class="tab-content" id="tab-reqs">
+                            <div class="empty-state">暂无需求点</div>
+                        </div>
+                        <div class="tab-content" id="tab-cases">
+                            <div class="empty-state">暂无测试用例</div>
+                        </div>
+                        <div class="tab-content" id="tab-scripts">
+                            <div class="empty-state">暂无测试脚本</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="toast" id="toast"></div>
+        <!-- 底部知识库搜索栏 -->
+        <div class="bottom-bar" id="bottom-bar" style="display:none;">
+            <input type="text" class="kb-input" id="kb-input" placeholder="搜索知识库（输入关键词查询已索引的文档内容）..." />
+            <button class="kb-btn" onclick="kbSearch()">
+                <span>🔍</span><span>检索</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-const API = '';  // 同源
+const API = '';
 let sessionId = null;
-let fileUploaded = false;
+let selectedDomain = 'vcu_gear';
+let sessionHistory = [];
 
-// --- 工具函数 ---
+// ========== 工具函数 ==========
 function showToast(msg, type='success') {
     const t = document.getElementById('toast');
-    t.textContent = msg; t.className = 'toast toast-' + type + ' show';
-    setTimeout(() => t.classList.remove('show'), 3000);
+    t.textContent = msg;
+    t.className = 'toast toast-' + type + ' show';
+    setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-function appendStream(text, cls='event-chunk') {
+function appendStream(text, cls='ev-chunk') {
     const out = document.getElementById('stream-output');
-    const span = document.createElement('div');
-    span.className = cls;
-    span.textContent = text;
-    out.appendChild(span);
+    const div = document.createElement('div');
+    div.className = cls;
+    div.textContent = text;
+    out.appendChild(div);
     out.scrollTop = out.scrollHeight;
 }
 
@@ -209,108 +739,275 @@ function clearStream() {
 
 function setStep(step) {
     for (let i = 1; i <= 5; i++) {
-        const el = document.getElementById('step-' + i);
+        const el = document.getElementById('wf-' + i);
         el.classList.remove('active', 'done');
         if (i < step) el.classList.add('done');
         if (i === step) el.classList.add('active');
     }
 }
 
-function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function switchTab(el, tab) {
+    document.querySelectorAll('#result-tabs .tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    event.target.classList.add('active');
+    el.classList.add('active');
     document.getElementById('tab-' + tab).classList.add('active');
 }
 
-// --- 健康检查 ---
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+function selectMode(el) {
+    document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    selectedDomain = el.dataset.domain;
+}
+
+function showWelcome() {
+    sessionId = null;
+    document.getElementById('welcome-screen').style.display = 'flex';
+    document.getElementById('workflow-view').style.display = 'none';
+    document.getElementById('bottom-bar').style.display = 'none';
+    document.getElementById('header-title').textContent = 'Hermes VCU Gateway';
+    loadSessionList();
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ========== 健康检查 ==========
 async function checkHealth() {
+    const el = document.getElementById('health-indicator');
     try {
         const resp = await fetch(API + '/health');
         const data = await resp.json();
-        const st = document.getElementById('hermes-status');
-        if (data.data.hermes_available) {
-            st.innerHTML = '<span class="dot dot-ok"></span>Hermes 已连接';
+        const d = data.data || data;
+        const hermesOk = d.hermes_available;
+        const sglangOk = d.sglang ? d.sglang.reachable : true;
+
+        if (hermesOk && sglangOk) {
+            el.innerHTML = '<span class="health-dot dot-ok"></span><span>服务正常</span>';
+        } else if (hermesOk) {
+            el.innerHTML = '<span class="health-dot dot-warn"></span><span>Mock 模式</span>';
         } else {
-            st.innerHTML = '<span class="dot dot-warn"></span>Mock 模式 (Hermes 未安装)';
+            el.innerHTML = '<span class="health-dot dot-err"></span><span>服务异常</span>';
         }
-    } catch (e) {
-        document.getElementById('hermes-status').innerHTML = '<span class="dot dot-err"></span>服务未启动';
+    } catch(e) {
+        el.innerHTML = '<span class="health-dot dot-err"></span><span>未连接</span>';
     }
 }
 
-// --- 创建会话 ---
-async function createSession() {
-    const title = document.getElementById('session-title').value;
-    const domain = document.getElementById('domain-select').value;
-    const resp = await fetch(API + '/api/v1/sessions', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({title, domain})
+// ========== 会话列表 ==========
+async function loadSessionList() {
+    try {
+        const resp = await fetch(API + '/api/v1/sessions?limit=50');
+        const data = await resp.json();
+        if (data.code === 0 && Array.isArray(data.data)) {
+            sessionHistory = data.data;
+            renderSessionList();
+        }
+    } catch(e) { /* 忽略 */ }
+}
+
+function renderSessionList() {
+    const list = document.getElementById('session-list');
+    if (!sessionHistory.length) {
+        list.innerHTML = '<div class="empty-state" style="padding:20px 8px;font-size:12px;">暂无历史会话</div>';
+        return;
+    }
+    // 按日期分组
+    const groups = {};
+    sessionHistory.forEach(s => {
+        let dateKey = '更早';
+        if (s.created_at) {
+            const d = new Date(s.created_at);
+            const today = new Date();
+            const diffDays = Math.floor((today - d) / 86400000);
+            if (diffDays === 0) dateKey = '今天';
+            else if (diffDays === 1) dateKey = '昨天';
+            else if (diffDays < 7) dateKey = '本周';
+            else if (diffDays < 30) dateKey = '本月';
+        }
+        if (!groups[dateKey]) groups[dateKey] = [];
+        groups[dateKey].push(s);
     });
-    const data = await resp.json();
-    if (data.code === 0) {
-        sessionId = data.data.session_id;
-        document.getElementById('session-status').textContent = '会话: ' + sessionId.slice(0, 16) + '...';
-        document.getElementById('session-info').innerHTML = `
-            <div class="info-row">ID: <span>${data.data.session_id}</span></div>
-            <div class="info-row">域: <span>${data.data.domain}</span></div>
-            <div class="info-row">状态: <span style="color:var(--success)">${data.data.status}</span></div>
-        `;
-        showToast('会话创建成功');
-        setStep(2);
-    } else {
-        showToast('创建失败: ' + data.message, 'error');
+
+    let html = '';
+    const order = ['今天', '昨天', '本周', '本月', '更早'];
+    for (const key of order) {
+        if (!groups[key]) continue;
+        html += `<div class="session-group-label">${key}</div>`;
+        for (const s of groups[key]) {
+            const active = s.session_id === sessionId ? ' active' : '';
+            const title = s.title || '未命名会话';
+            html += `<div class="session-item${active}" onclick="openSession('${s.session_id}')">
+                <span class="session-icon">💬</span>
+                <span class="session-name">${escapeHtml(title)}</span>
+                <span class="session-del" onclick="event.stopPropagation();deleteSession('${s.session_id}')">×</span>
+            </div>`;
+        }
+    }
+    list.innerHTML = html;
+}
+
+async function openSession(sid) {
+    try {
+        const resp = await fetch(`${API}/api/v1/sessions/${sid}`);
+        const data = await resp.json();
+        if (data.code !== 0) { showToast('会话加载失败', 'error'); return; }
+        const s = data.data;
+        sessionId = s.session_id;
+
+        document.getElementById('welcome-screen').style.display = 'none';
+        document.getElementById('workflow-view').style.display = 'block';
+        document.getElementById('bottom-bar').style.display = 'flex';
+        document.getElementById('header-title').textContent = s.title || 'VCU 工作流';
+
+        document.getElementById('session-info-title').textContent = s.title || '会话';
+        document.getElementById('session-info-meta').textContent = s.created_at ? new Date(s.created_at).toLocaleString('zh-CN') : '';
+        document.getElementById('session-domain').textContent = s.domain || 'general';
+        document.getElementById('session-status-text').textContent = s.status || 'active';
+        document.getElementById('session-id-short').textContent = s.session_id.slice(0, 20) + '...';
+
+        // 渲染已有数据
+        if (s.documents && s.documents.length) {
+            renderUploadedFiles(s.documents);
+            document.getElementById('btn-req').disabled = false;
+        }
+        if (s.requirements && s.requirements.length) {
+            renderRequirements(s.requirements);
+            document.getElementById('btn-tc').disabled = false;
+            setStep(4);
+        } else if (s.documents && s.documents.length) {
+            setStep(3);
+        } else {
+            setStep(2);
+        }
+        if (s.testcases && s.testcases.length) {
+            renderTestcases(s.testcases);
+            document.getElementById('btn-script').disabled = false;
+            setStep(5);
+        }
+        if (s.scripts && s.scripts.length) {
+            renderScripts(s.scripts);
+        }
+
+        renderSessionList();
+    } catch(e) {
+        showToast('加载会话出错', 'error');
     }
 }
 
-// --- 上传文件 ---
+async function deleteSession(sid) {
+    if (!confirm('确认删除该会话？')) return;
+    try {
+        await fetch(`${API}/api/v1/sessions/${sid}`, { method: 'DELETE' });
+        if (sid === sessionId) showWelcome();
+        else loadSessionList();
+        showToast('已删除');
+    } catch(e) { showToast('删除失败', 'error'); }
+}
+
+// ========== 创建会话 ==========
+async function createSessionFromWelcome() {
+    const titleInput = document.getElementById('welcome-title-input');
+    const title = titleInput.value.trim() || 'VCU测试会话';
+    const btn = document.getElementById('welcome-create-btn');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(API + '/api/v1/sessions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ title, domain: selectedDomain })
+        });
+        const data = await resp.json();
+        if (data.code === 0) {
+            sessionId = data.data.session_id;
+            // 切换到工作流视图
+            document.getElementById('welcome-screen').style.display = 'none';
+            document.getElementById('workflow-view').style.display = 'block';
+            document.getElementById('bottom-bar').style.display = 'flex';
+            document.getElementById('header-title').textContent = title;
+
+            document.getElementById('session-info-title').textContent = title;
+            document.getElementById('session-domain').textContent = data.data.domain;
+            document.getElementById('session-status-text').textContent = data.data.status;
+            document.getElementById('session-id-short').textContent = sessionId.slice(0, 20) + '...';
+
+            setStep(2);
+            loadSessionList();
+            showToast('会话创建成功，请上传需求文档');
+            titleInput.value = '';
+        } else {
+            showToast('创建失败: ' + (data.message || ''), 'error');
+        }
+    } catch(e) {
+        showToast('创建出错', 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ========== 文件上传 ==========
+function setupDragDrop() {
+    const zone = document.getElementById('upload-zone');
+    if (!zone) return;
+    ['dragover', 'dragenter'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('dragover'); }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
+    zone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length) { document.getElementById('file-input').files = files; uploadFile({ target: { files } }); }
+    });
+}
+
 async function uploadFile(event) {
     if (!sessionId) { showToast('请先创建会话', 'error'); return; }
     const file = event.target.files[0];
     if (!file) return;
     const formData = new FormData();
     formData.append('file', file);
-    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/upload`, {
-        method: 'POST', body: formData
-    });
-    const data = await resp.json();
-    if (data.code === 0) {
-        fileUploaded = true;
-        const fl = document.getElementById('file-list');
-        fl.innerHTML = `<div class="file-item">📄 ${data.data.filename} <span style="color:var(--text-dim)">(${(data.data.size/1024).toFixed(1)}KB)</span></div>`;
-        document.getElementById('btn-req').disabled = false;
-        setStep(3);
-        showToast('文件上传成功');
-    } else {
-        showToast('上传失败: ' + data.message, 'error');
-    }
+    showToast('上传中...', 'info');
+    try {
+        const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/upload`, {
+            method: 'POST', body: formData
+        });
+        const data = await resp.json();
+        if (data.code === 0) {
+            renderUploadedFiles([data.data]);
+            document.getElementById('btn-req').disabled = false;
+            setStep(3);
+            showToast('文件上传成功');
+        } else {
+            showToast('上传失败: ' + (data.message || ''), 'error');
+        }
+    } catch(e) { showToast('上传出错', 'error'); }
 }
 
-// --- 生成需求点 ---
-async function generateRequirements() {
-    if (!sessionId) return;
-    clearStream(); switchTab('stream');
-    document.getElementById('btn-req').disabled = true;
-    appendStream('▶ 生成需求点中...\n', 'event-status');
-    setStep(3);
+function renderUploadedFiles(docs) {
+    const body = document.getElementById('upload-body');
+    let html = '';
+    for (const doc of docs) {
+        const size = doc.file_size || 0;
+        html += `<div class="uploaded-file">
+            <span>📄</span>
+            <span class="file-name">${escapeHtml(doc.filename || 'document')}</span>
+            <span class="file-size">${(size / 1024).toFixed(1)} KB</span>
+        </div>`;
+    }
+    body.innerHTML = html;
+}
 
-    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/requirements`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, stream: true})
-    });
-
-    // SSE 流式读取
+// ========== SSE 流式读取通用函数 ==========
+async function readSSE(resp, onChunk, onResult, onError) {
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let fullText = '';
-
     while (true) {
-        const {done, value} = await reader.read();
+        const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, {stream: true});
+        buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
         for (const line of lines) {
@@ -318,162 +1015,232 @@ async function generateRequirements() {
                 try {
                     const evt = JSON.parse(line.slice(5).trim());
                     if (evt.event === 'status' || evt.status) {
-                        appendStream('[状态] ' + JSON.stringify(evt.status || evt.data) + '\n', 'event-status');
+                        const st = evt.status || (evt.data && evt.data.status) || '';
+                        appendStream('[状态] ' + JSON.stringify(st) + '\n', 'ev-status');
                     } else if (evt.chunk) {
-                        appendStream(evt.chunk, 'event-chunk');
-                        fullText += evt.chunk;
+                        onChunk(evt.chunk);
                     } else if (evt.event === 'result' || evt.data !== undefined) {
-                        const resultData = evt.data !== undefined ? evt.data : evt;
-                        appendStream('\n\n✅ 需求点生成完成\n', 'event-result');
-                        renderRequirements(resultData);
-                        document.getElementById('btn-tc').disabled = false;
-                        setStep(4);
+                        onResult(evt.data !== undefined ? evt.data : evt);
                     } else if (evt.event === 'error') {
-                        appendStream('\n❌ ' + (evt.message || '错误') + '\n', 'event-error');
+                        onError(evt.message || '未知错误');
                     }
-                } catch(e) {
-                    // 非 JSON 行，忽略
-                }
+                } catch(e) { /* 非 JSON 行 */ }
             }
         }
     }
-    document.getElementById('btn-req').disabled = false;
+}
+
+// ========== 生成需求点 ==========
+async function generateRequirements() {
+    if (!sessionId) return;
+    clearStream();
+    document.querySelectorAll('#result-tabs .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('#result-tabs .tab').classList.add('active');
+    document.getElementById('tab-stream').classList.add('active');
+
+    const btn = document.getElementById('btn-req');
+    btn.disabled = true;
+    appendStream('▶ 正在生成需求点...\n', 'ev-status');
+    setStep(3);
+
+    try {
+        const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/requirements`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: sessionId, stream: true })
+        });
+        await readSSE(resp,
+            chunk => appendStream(chunk, 'ev-chunk'),
+            data => {
+                appendStream('\n\n✅ 需求点生成完成\n', 'ev-result');
+                renderRequirements(data);
+                document.getElementById('btn-tc').disabled = false;
+                setStep(4);
+            },
+            msg => appendStream('\n❌ ' + msg + '\n', 'ev-error')
+        );
+    } catch(e) { appendStream('\n❌ 网络错误\n', 'ev-error'); }
+    btn.disabled = false;
 }
 
 function renderRequirements(data) {
     let html = '';
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length) {
         html = '<table class="result-table"><tr><th>ID</th><th>功能名称</th><th>需求描述</th><th>优先级</th></tr>';
         data.forEach(r => {
-            html += `<tr><td style="font-family:var(--mono)">${r.id||'-'}</td><td>${r.name||r.title||'-'}</td><td style="font-size:12px;color:var(--text-dim)">${(r.description||'').slice(0,80)}...</td><td>${r.priority||'-'}</td></tr>`;
+            html += `<tr>
+                <td class="mono">${escapeHtml(r.id || '-')}</td>
+                <td>${escapeHtml(r.name || r.title || '-')}</td>
+                <td class="dim">${escapeHtml((r.description || '').slice(0, 100))}${(r.description||'').length > 100 ? '...' : ''}</td>
+                <td>${escapeHtml(r.priority || '-')}</td>
+            </tr>`;
         });
         html += '</table>';
     } else if (typeof data === 'string') {
-        html = `<div class="json-view">${data}</div>`;
+        html = `<div class="json-view">${escapeHtml(data)}</div>`;
     } else {
-        html = `<div class="json-view">${JSON.stringify(data, null, 2)}</div>`;
+        html = `<div class="json-view">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
     }
-    document.getElementById('reqs-content').innerHTML = html;
+    document.getElementById('tab-reqs').innerHTML = html;
 }
 
-// --- 生成测试用例 ---
+// ========== 生成测试用例 ==========
 async function generateTestcases() {
     if (!sessionId) return;
-    clearStream(); switchTab('stream');
-    document.getElementById('btn-tc').disabled = true;
-    appendStream('▶ 生成测试用例中...\n', 'event-status');
+    clearStream();
+    document.querySelector('#result-tabs .tab').classList.add('active');
+    document.getElementById('tab-stream').classList.add('active');
+    document.querySelectorAll('#result-tabs .tab').forEach((t, i) => { if (i > 0) t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach((c, i) => { if (i > 0) c.classList.remove('active'); });
+
+    const btn = document.getElementById('btn-tc');
+    btn.disabled = true;
+    appendStream('▶ 正在生成测试用例...\n', 'ev-status');
     setStep(4);
 
-    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/testcases`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, stream: true})
-    });
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, {stream: true});
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
-            if (line.startsWith('data:')) {
-                try {
-                    const evt = JSON.parse(line.slice(5).trim());
-                    if (evt.chunk) { appendStream(evt.chunk, 'event-chunk'); }
-                    else if (evt.event === 'result' || evt.data !== undefined) {
-                        const resultData = evt.data !== undefined ? evt.data : evt;
-                        appendStream('\n\n✅ 测试用例生成完成\n', 'event-result');
-                        renderTestcases(resultData);
-                        document.getElementById('btn-script').disabled = false;
-                        setStep(5);
-                    } else if (evt.event === 'error') {
-                        appendStream('\n❌ ' + (evt.message||'错误') + '\n', 'event-error');
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-    document.getElementById('btn-tc').disabled = false;
+    try {
+        const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/testcases`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: sessionId, stream: true })
+        });
+        await readSSE(resp,
+            chunk => appendStream(chunk, 'ev-chunk'),
+            data => {
+                appendStream('\n\n✅ 测试用例生成完成\n', 'ev-result');
+                renderTestcases(data);
+                document.getElementById('btn-script').disabled = false;
+                setStep(5);
+            },
+            msg => appendStream('\n❌ ' + msg + '\n', 'ev-error')
+        );
+    } catch(e) { appendStream('\n❌ 网络错误\n', 'ev-error'); }
+    btn.disabled = false;
 }
 
 function renderTestcases(data) {
     let html = '';
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length) {
         html = '<table class="result-table"><tr><th>ID</th><th>标题</th><th>级别</th><th>前置条件</th><th>预期结果</th></tr>';
         data.forEach(c => {
-            const level = (c.level||'').toUpperCase();
-            html += `<tr><td style="font-family:var(--mono)">${c.id||'-'}</td><td>${c.title||'-'}</td><td><span class="level-badge level-${level}">${level}</span></td><td style="font-size:12px;color:var(--text-dim)">${(c.precondition||'').slice(0,50)}</td><td style="font-size:12px;color:var(--text-dim)">${(c.expected||'').slice(0,50)}</td></tr>`;
+            const lv = (c.level || '').toUpperCase();
+            html += `<tr>
+                <td class="mono">${escapeHtml(c.id || '-')}</td>
+                <td>${escapeHtml(c.title || '-')}</td>
+                <td><span class="level-badge lv-${lv}">${lv}</span></td>
+                <td class="dim">${escapeHtml((c.precondition || '').slice(0, 60))}</td>
+                <td class="dim">${escapeHtml((c.expected || '').slice(0, 60))}</td>
+            </tr>`;
         });
         html += '</table>';
     } else {
-        html = `<div class="json-view">${JSON.stringify(data, null, 2)}</div>`;
+        html = `<div class="json-view">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
     }
-    document.getElementById('cases-content').innerHTML = html;
+    document.getElementById('tab-cases').innerHTML = html;
 }
 
-// --- 生成测试脚本 ---
+// ========== 生成测试脚本 ==========
 async function generateScripts() {
     if (!sessionId) return;
-    clearStream(); switchTab('stream');
-    document.getElementById('btn-script').disabled = true;
-    appendStream('▶ 生成测试脚本中...\n', 'event-status');
+    clearStream();
+    document.querySelector('#result-tabs .tab').classList.add('active');
+    document.getElementById('tab-stream').classList.add('active');
+    document.querySelectorAll('#result-tabs .tab').forEach((t, i) => { if (i > 0) t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach((c, i) => { if (i > 0) c.classList.remove('active'); });
+
+    const btn = document.getElementById('btn-script');
+    btn.disabled = true;
+    appendStream('▶ 正在生成测试脚本...\n', 'ev-status');
     setStep(5);
 
-    const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/scripts`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id: sessionId, stream: true})
-    });
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, {stream: true});
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
-            if (line.startsWith('data:')) {
-                try {
-                    const evt = JSON.parse(line.slice(5).trim());
-                    if (evt.chunk) { appendStream(evt.chunk, 'event-chunk'); }
-                    else if (evt.event === 'result' || evt.data !== undefined) {
-                        const resultData = evt.data !== undefined ? evt.data : evt;
-                        appendStream('\n\n✅ 测试脚本生成完成\n', 'event-result');
-                        renderScripts(resultData);
-                    } else if (evt.event === 'error') {
-                        appendStream('\n❌ ' + (evt.message||'错误') + '\n', 'event-error');
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-    document.getElementById('btn-script').disabled = false;
+    try {
+        const resp = await fetch(`${API}/api/v1/sessions/${sessionId}/generate/scripts`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: sessionId, stream: true })
+        });
+        await readSSE(resp,
+            chunk => appendStream(chunk, 'ev-chunk'),
+            data => {
+                appendStream('\n\n✅ 测试脚本生成完成\n', 'ev-result');
+                renderScripts(data);
+            },
+            msg => appendStream('\n❌ ' + msg + '\n', 'ev-error')
+        );
+    } catch(e) { appendStream('\n❌ 网络错误\n', 'ev-error'); }
+    btn.disabled = false;
 }
 
 function renderScripts(data) {
     let html = '';
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length) {
         data.forEach(s => {
-            html += `<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;margin-bottom:6px">📄 ${s.id||s.case_id||'脚本'}</div><div class="code-block">${(s.script||s.code||s.content||JSON.stringify(s,null,2)).replace(/</g,'&lt;')}</div></div>`;
+            const code = s.script || s.code || s.content || JSON.stringify(s, null, 2);
+            html += `<div style="margin-bottom:14px;">
+                <div style="font-size:13px;font-weight:600;margin-bottom:6px;">📄 ${escapeHtml(s.id || s.case_id || '脚本')}</div>
+                <div class="code-block">${escapeHtml(code)}</div>
+            </div>`;
         });
     } else {
-        html = `<div class="code-block">${JSON.stringify(data, null, 2).replace(/</g,'&lt;')}</div>`;
+        html = `<div class="code-block">${escapeHtml(JSON.stringify(data, null, 2))}</div>`;
     }
-    document.getElementById('scripts-content').innerHTML = html;
+    document.getElementById('tab-scripts').innerHTML = html;
 }
 
-// --- 初始化 ---
+// ========== 知识库检索 ==========
+async function kbSearch() {
+    const input = document.getElementById('kb-input');
+    const query = input.value.trim();
+    if (!query) return;
+    clearStream();
+    document.querySelector('#result-tabs .tab').classList.add('active');
+    document.getElementById('tab-stream').classList.add('active');
+    document.querySelectorAll('#result-tabs .tab').forEach((t, i) => { if (i > 0) t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach((c, i) => { if (i > 0) c.classList.remove('active'); });
+
+    appendStream('🔍 检索知识库: "' + query + '"\n\n', 'ev-status');
+    try {
+        const resp = await fetch(`${API}/api/v1/kb/search`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ query, top_k: 10 })
+        });
+        const data = await resp.json();
+        if (data.code === 0) {
+            const d = data.data;
+            appendStream(`本地结果: ${d.local_count} 条`, 'ev-result');
+            if (d.remote_count !== undefined) appendStream(`  |  远程结果: ${d.remote_count} 条\n`, 'ev-result');
+            appendStream('\n', 'ev-status');
+            if (d.local_results && d.local_results.length) {
+                d.local_results.forEach((r, i) => {
+                    appendStream(`\n[${i+1}] ${r.source || r.doc_id || '未知来源'}\n`, 'ev-chunk');
+                    appendStream((r.content || r.text || '').slice(0, 300) + '...\n', 'ev-status');
+                });
+            } else {
+                appendStream('未找到匹配内容\n', 'ev-status');
+            }
+        }
+    } catch(e) { appendStream('❌ 检索出错\n', 'ev-error'); }
+}
+
+// ========== 初始化 ==========
 checkHealth();
-setStep(1);
+setInterval(checkHealth, 30000);
+loadSessionList();
+
+// 欢迎屏回车创建
+document.getElementById('welcome-title-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); createSessionFromWelcome(); }
+});
+
+// 知识库回车搜索
+document.getElementById('kb-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') kbSearch();
+});
+
+// 拖拽上传（延迟绑定等 DOM 就绪）
+setTimeout(setupDragDrop, 100);
 </script>
 </body>
 </html>

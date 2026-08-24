@@ -38,7 +38,7 @@ def create_app() -> FastAPI:
             "B 模块 API 网关层 — 将 Hermes AIAgent 封装为 REST API 服务，"
             "面向 VCU 测试用例生成全链路。"
         ),
-        version="0.3.0-phase3",
+        version="0.4.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
@@ -67,7 +67,15 @@ def create_app() -> FastAPI:
     static_dir = Path(__file__).resolve().parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-        logger.info(f"  Web 前端: http://localhost:{config.PORT}/static/index.html")
+        logger.info(f"  Web 前端: http://localhost:{config.PORT}/")
+
+    # --- 根路由：返回前端首页 ---
+    @app.get("/")
+    async def root():
+        index_path = Path(__file__).resolve().parent / "static" / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path), media_type="text/html")
+        return {"code": 0, "data": {"service": "Hermes VCU Gateway", "version": app.version}}
 
     # --- 启动事件 ---
     @app.on_event("startup")
